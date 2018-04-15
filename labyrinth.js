@@ -82,6 +82,14 @@ let gameOver: boolean = false;
 // to reach the upper left corner of the maze.
 let secondStage: boolean = false;
 
+// At what tilt degrees to consider that we have
+// "move" event and "flat" event.
+const TILT_DEGREES_MOVE = 15
+const TILT_DEGREES_FLAT = 10
+
+// Board's tilt position. False means almost no tilt.
+let mbState: boolean = false
+
 // Display the initial maze size.
 basic.showNumber(size)
 
@@ -624,67 +632,51 @@ function checkGameState() {
     }
 }
 
-// Generic micro:bit event handlers.
-
-// Move player to the west.
-input.onGesture(Gesture.TiltLeft, () => {
+// Check the board's tilt position and process the
+// player's movement accordingly.
+function checkBoardTilt() {
     if (!generated || gameOver) {
         return
     }
 
-    let cell: number = size * playerY + playerX
-
-    if (getWest(cell)) {
-        playerX--
-        masterX += 2
-        drawMaze()
-    }
-})
-
-// Move player to the east.
-input.onGesture(Gesture.TiltRight, () => {
-    if (!generated || gameOver) {
-        return
-    }
+    let pitch: number = input.rotation(Rotation.Pitch)
+    let roll: number = input.rotation(Rotation.Roll)
 
     let cell: number = size * playerY + playerX
 
-    if (getEast(cell)) {
-        playerX++
-        masterX -= 2
-        drawMaze()
-    }
-})
-
-// Move player to the north.
-input.onGesture(Gesture.LogoDown, () => {
-    if (!generated || gameOver) {
-        return
-    }
-
-    let cell: number = size * playerY + playerX
-
-    if (getNorth(cell)) {
-        playerY--
-        masterY += 2
-        drawMaze()
-    }
-})
-
-// Move player to the west.
-input.onGesture(Gesture.LogoUp, () => {
-    if (!generated || gameOver) {
-        return
-    }
-
-    let cell: number = size * playerY + playerX
-
-    if (getSouth(cell)) {
+    if (pitch > TILT_DEGREES_MOVE && !mbState && getSouth(cell)) {
+        mbState = true
         playerY++
         masterY -= 2
         drawMaze()
     }
-})
+
+    if (pitch < -TILT_DEGREES_MOVE && !mbState && getNorth(cell)) {
+        mbState = true
+        playerY--
+        masterY += 2
+        drawMaze()
+    }
+
+    if (roll > TILT_DEGREES_MOVE && !mbState && getEast(cell)) {
+        mbState = true
+        playerX++
+        masterX -= 2
+        drawMaze()
+    }
+
+    if (roll < -TILT_DEGREES_MOVE && !mbState && getWest(cell)) {
+        mbState = true
+        playerX--
+        masterX += 2
+        drawMaze()
+    }
+
+    if (Math.abs(pitch) < TILT_DEGREES_FLAT && Math.abs(roll) < 10) {
+        mbState = false
+    }
+
+}
 
 // Generate the maze and start the game.
 input.onButtonPressed(Button.AB, () => {
@@ -738,6 +730,7 @@ basic.forever(() => {
         nextEvent++
 
         checkGameState()
+        checkBoardTilt()
 
         if (nextEvent % 2 == 0) {
             // Redraw player every 200 ms.
