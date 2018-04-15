@@ -93,12 +93,12 @@ for (let x: number = 0; x < size; x++) {
 }
 
 // Build individual maze cell.
-function setCell(x: number, y: number, up: boolean, down: boolean, left: boolean, right: boolean) {
+function setCell(x: number, y: number, north: boolean, south: boolean, west: boolean, east: boolean) {
     let pos: number = (size * x + y) * 4
-    maze[pos] = up
-    maze[pos + 1] = down
-    maze[pos + 2] = left
-    maze[pos + 3] = right
+    maze[pos] = north
+    maze[pos + 1] = south
+    maze[pos + 2] = west
+    maze[pos + 3] = east
 }
 
 // Get the 'y' coordinate of a maze cell. The input is
@@ -203,24 +203,19 @@ function getMaxBrokenWalls(cell: number): number {
 function getActualBrokenWalls(cell: number): number {
     let brokenWalls: number = 0
 
-    let up: boolean = getNorth(cell)
-    let down: boolean = getSouth(cell)
-    let left: boolean = getWest(cell)
-    let right: boolean = getEast(cell)
-
-    if (up) {
+    if (getNorth(cell)) {
         brokenWalls++
     }
 
-    if (down) {
+    if (getSouth(cell)) {
         brokenWalls++
     }
 
-    if (left) {
+    if (getWest(cell)) {
         brokenWalls++
     }
 
-    if (right) {
+    if (getEast(cell)) {
         brokenWalls++
     }
 
