@@ -12,4 +12,4 @@ At the beginning you can choose the maze size. Currently the maze size is limite
 
 Use buttons ``A`` and ``B`` to select the initial maze size. Then press buttons ``A`` and ``B`` together in order to start the game. Tilt the device in the direction where you want to go. That's all. When you finish the game press the reset button.
 
-You can also [give it a try](https://makecode.microbit.org/_4m73YjcqY0fo) in the ``Microsoft MakeCode`` online environment and play the game in the ``micro:bit`` simulator.
+You can also [give it a try](https://makecode.microbit.org/_5iRJHLD76Abj) in the ``Microsoft MakeCode`` online environment and play the game in the ``micro:bit`` simulator.
