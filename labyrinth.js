@@ -1,43 +1,98 @@
+/*
+                This code is PUBLIC DOMAIN
+
+                   Author: Ivan Davidov
+
+  The game generates random maze and puts the player at the
+  top left corner. The end goal is to reach the other three
+  corners which are marked with slowly blinking dots and then
+  return back to the top left corner.
+
+  The player dot blinks faster and it is always at the center
+  of the display. You can navigate the player by tilting the
+  micro:bit device at the direction where you want the player
+  to go.
+
+  In the beginning of the game you can choose the maze size.
+  The default size is 5x5. Use buttons A or B to change the
+  maze size. The max size is limited to 9 but this can be
+  changed quite easily in the program.
+
+  Start the game by pressing buttons A and B together. You
+  will see an hourglass icon which indicates that the maze
+  is being generated. After a while it will disappear and
+  you can start playing the game.
+
+  Use the reset button to start new game.
+
+  The magze generation algorithm is based on the randomized
+  Prim's algorithm. 
+
+  http://en.wikipedia.org/wiki/Maze_generation_algorithm#Randomized_Prim's_algorithm
+
+  http://weblog.jamisbuck.org/2011/1/10/maze-generation-prim-s-algorithm
+
+*/
+
+// The maze grid, represented as one-dimensional array.
+// JavaScript sucks when we deal with 2D+ arrays.
 let maze: boolean[] = []
 
-let stack: number[] = []
-
+// Initial offset coordinates when drawing the maze.
 let masterX: number = 1;
 let masterY: number = 1;
 
+// Maze size constants.
 const MIN_SIZE = 2
-const MAX_SIZE = 5
-const DEF_SIZE = 3
+const MAX_SIZE = 9
+const DEF_SIZE = 5
 
+// Initial maze size.
 let size: number = DEF_SIZE
+
+// Is the maze generated?
 let generated = false;
 
+// Initial player position as cell coordinates.
 let playerX: number = 0
 let playerY: number = 0
 
+// These are used to handle the point blinking.
 let playerState: boolean = false
 let cornerState: boolean = false
 
+// How often to generate custom events in milliseconds.
+const EVENT_TIME: number = 100
+
+// Counter for the custom events.
 let nextEvent: number = 0
 
+// Keep track of reached corners.
 let cornersReached: boolean[] = []
-
 cornersReached[0] = false;
 cornersReached[1] = false;
 cornersReached[2] = false;
 
+// Not theat this flag has nothing to do with
+// the function "game.gameOver()".
 let gameOver: boolean = false;
 
+// Game stage flag. The first stage is to reach
+// the other three corners. The second stage is
+// to reach the upper left corner of the maze.
 let secondStage: boolean = false;
 
+// Display the initial maze size.
 basic.showNumber(size)
 
+// Initialize all maze cells with solid walls.
 for (let x: number = 0; x < size; x++) {
     for (let y: number = 0; y < size; y++) {
         setCell(x, y, false, false, false, false)
     }
 }
 
+// Build individual maze cell.
 function setCell(x: number, y: number, up: boolean, down: boolean, left: boolean, right: boolean) {
     let pos: number = (size * x + y) * 4
     maze[pos] = up
@@ -46,6 +101,8 @@ function setCell(x: number, y: number, up: boolean, down: boolean, left: boolean
     maze[pos + 3] = right
 }
 
+// Get the 'y' coordinate of a maze cell. The input is
+// the position of the first cell wall in the maze array.
 function getXFromPos(pos: number): number {
     let x: number = (pos / 4) % size
     let y: number = ((pos / 4) - x) / size
@@ -53,6 +110,8 @@ function getXFromPos(pos: number): number {
     return x
 }
 
+// Get the 'y' coordinate of a maze cell. The input is
+// the position of the first cell wall in the maze array.
 function getYFromPos(pos: number): number {
     let x: number = (pos / 4) % size
     let y: number = ((pos / 4) - x) / size
@@ -60,57 +119,70 @@ function getYFromPos(pos: number): number {
     return y
 }
 
+// Get the 'x' coordinate of a maze cell.
+// The input is the cell position in the maze.
 function getX(cell: number): number {
     let pos: number = cell * 4;
     return getXFromPos(pos)
 }
 
+// Get the 'y' coordinate of a maze cell.
+// The input is the cell position in the maze.
 function getY(cell: number): number {
     let pos: number = cell * 4;
     return getYFromPos(pos)
 }
 
-function getUp(cell: number): boolean {
+// Does this cell has north path?
+function getNorth(cell: number): boolean {
     let pos: number = cell * 4
     return maze[pos]
 }
 
-function setUp(cell: number, path: boolean) {
+// Set the north wall path.
+function setNorth(cell: number, path: boolean) {
     let pos: number = cell * 4
     return maze[pos] = path
 }
 
-function getDown(cell: number): boolean {
+// Does this cell has south path?
+function getSouth(cell: number): boolean {
     let pos: number = cell * 4
     return maze[pos + 1]
 }
 
-function setDown(cell: number, path: boolean) {
+// Set the south path state.
+function setSouth(cell: number, path: boolean) {
     let pos: number = cell * 4
     return maze[pos + 1] = path
 }
 
-function getLeft(cell: number): boolean {
+// Does this cell has west path?
+function getWest(cell: number): boolean {
     let pos: number = cell * 4
     return maze[pos + 2]
 }
 
-function setLeft(cell: number, path: boolean) {
+// Set the west path state.
+function setWest(cell: number, path: boolean) {
     let pos: number = cell * 4
     return maze[pos + 2] = path
 }
 
-function getRight(cell: number): boolean {
+// Does this cell has east path?
+function getEast(cell: number): boolean {
     let pos: number = cell * 4
     return maze[pos + 3]
 }
 
-function setRight(cell: number, path: boolean) {
+// Set the east wall state.
+function setEast(cell: number, path: boolean) {
     let pos: number = cell * 4
     return maze[pos + 3] = path
 }
 
-function getMaxFallenWalls(cell: number): number {
+// How many walls can we break in this cell?
+function getMaxBrokenWalls(cell: number): number {
     let maxWalls: number = 4
 
     let x: number = getX(cell)
@@ -127,147 +199,130 @@ function getMaxFallenWalls(cell: number): number {
     return maxWalls
 }
 
-function getActualFallenWalls(cell: number): number {
-    let fallenWalls: number = 0
+// How many walls are broken in this cell?
+function getActualBrokenWalls(cell: number): number {
+    let brokenWalls: number = 0
 
-    let up: boolean = getUp(cell)
-    let down: boolean = getDown(cell)
-    let left: boolean = getLeft(cell)
-    let right: boolean = getRight(cell)
+    let up: boolean = getNorth(cell)
+    let down: boolean = getSouth(cell)
+    let left: boolean = getWest(cell)
+    let right: boolean = getEast(cell)
 
     if (up) {
-        fallenWalls++
+        brokenWalls++
     }
 
     if (down) {
-        fallenWalls++
+        brokenWalls++
     }
 
     if (left) {
-        fallenWalls++
+        brokenWalls++
     }
 
     if (right) {
-        fallenWalls++
+        brokenWalls++
     }
 
-    return fallenWalls
+    return brokenWalls
 }
 
-function breakUpWall(cell: number) {
+// Break the north wall for this cell.
+function breakNorthWall(cell: number) {
     let x: number = getX(cell)
     let y: number = getY(cell)
 
-    setUp(cell, true)
+    setNorth(cell, true)
 
     if (y = 0) {
         return
     }
 
-    let upCell = cell - size
-    setDown(upCell, true)
+    let northCell = cell - size
+    setSouth(northCell, true)
 }
 
-function breakDownWall(cell: number) {
+// Break the south wall for this cell.
+function breakSouthWall(cell: number) {
     let x: number = getX(cell)
     let y: number = getY(cell)
 
-    setDown(cell, true)
+    setSouth(cell, true)
 
     if (y == size - 1) {
         return
     }
 
-    let downCell = cell + size
-    setUp(downCell, true)
+    let southCell = cell + size
+    setNorth(southCell, true)
 }
 
-function breakLeftWall(cell: number) {
+// Break the west wall for this cell.
+function breakWestWall(cell: number) {
     let x: number = getX(cell)
     let y: number = getY(cell)
 
-    setLeft(cell, true)
+    setWest(cell, true)
 
     if (x == 0) {
         return
     }
 
-    let leftCell = cell - 1
-    setRight(leftCell, true)
+    let westCell = cell - 1
+    setEast(westCell, true)
 }
 
-function breakRightWall(cell: number) {
+// Break the east wall for this cell.
+function breakEastWall(cell: number) {
     let x: number = getX(cell)
     let y: number = getY(cell)
 
-    setRight(cell, true)
+    setEast(cell, true)
 
     if (x == size - 1) {
         return
     }
 
-    let rightCell = cell + 1
-    setLeft(rightCell, true)
+    let eastCell = cell + 1
+    setWest(eastCell, true)
 }
 
-function findCenterCell(): number {
-    let center: number = size / 2
-    return center
-}
-
-function drawMaze(center: number) {
+// Draw the maze on the screen with master X/Y offset.
+function drawMaze() {
     basic.clearScreen()
-
-    let cellX: number = getX(center)
-    let cellY: number = getY(center)
 
     for (let x: number = 0; x < size; x++) {
         for (let y: number = 0; y < size; y++) {
             let cell: number = size * y + x
             let cellX: number = 2 * x + 1 + masterX
             let cellY: number = 2 * y + 1 + masterY
+
             drawCell(cell, cellX, cellY)
         }
     }
-
-    //for (let x: number = -1; x < 2; x++) {
-    //    for (let y: number = -1; y < 2; y++) {
-    //        let cell: number = cellX + x + (y * size)
-    //        let posX: number = 2 - (x * 2)
-    //        let posY: number = 2 - (y * 2)
-    //        drawCell(cell, posX, posY)
-    //    }
-    //}
-
-    //drawCell(0, 1, 1)
-    //drawCell(1, 3, 1)
-    //drawCell(2, 5, 1)
-    //drawCell(3, 1, 3)
-    //drawCell(1, 3, 1)
-    //drawCell(center - 1 - size, 1, 1)
-    //drawCell(center - 0 - size, 3, 1)
-    //drawCell(center - 1 - 0, 1, 3)
 }
 
+// Draw individual maze cell on the screen.
 function drawCell(cell: number, posX: number, posY: number) {
-    if (!getUp(cell)) {
-        drawUpWall(posX, posY)
+    if (!getNorth(cell)) {
+        drawNorthWall(posX, posY)
     }
 
-    if (!getDown(cell)) {
-        drawDownWall(posX, posY)
+    if (!getSouth(cell)) {
+        drawSouthWall(posX, posY)
     }
 
-    if (!getLeft(cell)) {
-        drawLeftWall(posX, posY)
+    if (!getWest(cell)) {
+        drawWestWall(posX, posY)
     }
 
-    if (!getRight(cell)) {
-        drawRightWall(posX, posY)
+    if (!getEast(cell)) {
+        drawEastWall(posX, posY)
     }
 }
 
-function drawUpWall(posX: number, posY: number) {
+// Draw north wall at the specified position.
+function drawNorthWall(posX: number, posY: number) {
     let x: number = posX - 1
     let y: number = posY - 1
 
@@ -276,7 +331,8 @@ function drawUpWall(posX: number, posY: number) {
     }
 }
 
-function drawDownWall(posX: number, posY: number) {
+// Draw south wall at the specified position.
+function drawSouthWall(posX: number, posY: number) {
     let x: number = posX - 1
     let y: number = posY + 1
 
@@ -285,7 +341,8 @@ function drawDownWall(posX: number, posY: number) {
     }
 }
 
-function drawLeftWall(posX: number, posY: number) {
+// Draw west wall at the specified position.
+function drawWestWall(posX: number, posY: number) {
     let x: number = posX - 1
     let y: number = posY - 1
 
@@ -294,7 +351,8 @@ function drawLeftWall(posX: number, posY: number) {
     }
 }
 
-function drawRightWall(posX: number, posY: number) {
+// Draw east wall at the specified position.
+function drawEastWall(posX: number, posY: number) {
     let x: number = posX + 1
     let y: number = posY - 1
 
@@ -303,9 +361,8 @@ function drawRightWall(posX: number, posY: number) {
     }
 }
 
-function checkUp(cell: number): boolean {
-    let whole: boolean = true
-
+//Is the north cell intact?
+function checkNorth(cell: number): boolean {
     let x: number = getX(cell)
     let y: number = getY(cell)
 
@@ -314,13 +371,13 @@ function checkUp(cell: number): boolean {
     }
 
     let nextCell: number = size * (y - 1) + x
-    let fallen: number = getActualFallenWalls(nextCell)
+    let broken: number = getActualBrokenWalls(nextCell)
 
-    return fallen == 0
+    return broken == 0
 }
 
-function checkDown(cell: number): boolean {
-    //basic.showNumber(55)
+//Is the south cell intact?
+function checkSouth(cell: number): boolean {
     let x: number = getX(cell)
     let y: number = getY(cell)
 
@@ -329,16 +386,13 @@ function checkDown(cell: number): boolean {
     }
 
     let nextCell: number = size * (y + 1) + x
-    let fallen: number = getActualFallenWalls(nextCell)
+    let broken: number = getActualBrokenWalls(nextCell)
 
-    //basic.showNumber(fallen)
-
-    return fallen == 0
+    return broken == 0
 }
 
-function checkLeft(cell: number): boolean {
-    let whole: boolean = true
-
+//Is the west cell intact?
+function checkWest(cell: number): boolean {
     let x: number = getX(cell)
     let y: number = getY(cell)
 
@@ -347,14 +401,13 @@ function checkLeft(cell: number): boolean {
     }
 
     let nextCell: number = size * y + x - 1
-    let fallen: number = getActualFallenWalls(nextCell)
+    let broken: number = getActualBrokenWalls(nextCell)
 
-    return fallen == 0
+    return broken == 0
 }
 
-function checkRight(cell: number): boolean {
-    let whole: boolean = true
-
+//Is the east cell intact?
+function checkEast(cell: number): boolean {
     let x: number = getX(cell)
     let y: number = getY(cell)
 
@@ -363,178 +416,140 @@ function checkRight(cell: number): boolean {
     }
 
     let nextCell: number = size * y + x + 1
-    let fallen: number = getActualFallenWalls(nextCell)
+    let broken: number = getActualBrokenWalls(nextCell)
 
-    return fallen == 0
+    return broken == 0
 }
 
+// Generate new random maze by using the
+// randomized Prim's algorithm.
 function generateMaze() {
-    let cell: number = Math.random(size * size)
-    //let cell: number = 3
-    stack.push(cell)
-    estimate(1)
-    //sweepMaze()
-}
+    let initialWall: number = Math.random(2)
 
-function sweepMaze() {
-    /*
-    There is some bug when we have 4x4 maze and probably
-    the issue is with all even sized mazes, even though
-    the bug appears only in 4x4 mazes. This hacky trick
-    checks the edge cells and opens them if necessary.
-    */
-
-    if (getActualFallenWalls(0) == 0) {
-        breakDownWall(0)
+    // Always start with the fisrt maze cell.
+    if (initialWall == 0) {
+        breakSouthWall(0)
+    } else {
+        breakEastWall(0)
     }
 
-    if (getActualFallenWalls(size - 1) == 0) {
-        breakDownWall(size - 1)
-    }
+    // Find all adjacent cells which are intact.
+    let nextCells: number[] = findNextCells()
 
-    if (getActualFallenWalls(size * (size - 1)) == 0) {
-        breakUpWall(size * (size - 1))
-    }
+    while (nextCells.length > 0) {
+        let cellIndex: number = Math.random(nextCells.length)
 
-    if (getActualFallenWalls(size * size - 1) == 0) {
-        breakUpWall(size * size - 1)
+        removeWall(nextCells[cellIndex])
+        nextCells = findNextCells()
     }
 }
 
-function estimate(count: number) {
-    //if (count > 5) {
-    //    return
-    //}
+// Remove random wall for the specified cell.
+function removeWall(cell: number) {
+    let x: number = getX(cell)
+    let y: number = getY(cell)
 
-    if (stack.length == 0) {
-        return
+    let canBreak: boolean[] = []
+    let maxCanBreak: number = 0;
+
+    if (x == 0) {
+        canBreak[0] = false
+    } else if (!checkWest(cell)) {
+        canBreak[0] = true
+        maxCanBreak++
     }
 
-    let cell: number = stack.pop()
-    let max: number = getMaxFallenWalls(cell)
-    let fallen: number = getActualFallenWalls(cell)
-
-    let index: number = Math.random(max - fallen)
-    //let index: number = 0
-    let paths: boolean[] = []
-
-    paths[0] = !checkUp(cell)
-    paths[1] = !checkDown(cell)
-    paths[2] = !checkLeft(cell)
-    paths[3] = !checkRight(cell)
-
-    if (getX(cell) == 0) {
-        paths[2] = true
+    if (x == size - 1) {
+        canBreak[1] = false
+    } else if (!checkEast(cell)) {
+        canBreak[1] = true
+        maxCanBreak++
     }
 
-    if (getX(cell) == size - 1) {
-        paths[3] = true
+    if (y == 0) {
+        canBreak[2] = false
+    } else if (!checkNorth(cell)) {
+        canBreak[2] = true
+        maxCanBreak++
     }
 
-    if (getY(cell) == 0) {
-        paths[0] = true
+    if (y == size - 1) {
+        canBreak[3] = false
+    } else if (!checkSouth(cell)) {
+        canBreak[3] = true
+        maxCanBreak++
     }
 
-    if (getY(cell) == size - 1) {
-        paths[1] = true
-    }
+    let toBreak: number = Math.random(maxCanBreak)
+    let wall: number = -1
 
-    let wallNum: number = -1;
-    for (let i: number = 0; i < 4; i++) {
-        if (paths[i] == false) {
-            index--
+    for (let i: number = 0; i < canBreak.length; i++) {
+        wall++
+
+        if (canBreak[i]) {
+            toBreak--
         }
 
-        if (index < 0) {
-            wallNum = i
+        if (toBreak < 0) {
             break
         }
-    }
-
-    /*
-    if (count == 7) {
-        basic.showNumber(cell)
-        basic.showNumber(wallNum)
-        basic.showString("" + paths[0])
-        basic.showString("" + paths[1])
-        basic.showString("" + paths[2])
-        basic.showString("" + paths[3])
-    }
-    */
-
-    let nextCell: number = breakWall(cell, wallNum)
-
-    if (nextCell >= 0) {
-        stack.push(cell)
-        stack.push(nextCell)
-    }
-
-    estimate(++count)
-}
-
-function breakWall(cell: number, wall: number): number {
-    let nextCell = -1;
-
-    if (wall == -1) {
-        return nextCell
     }
 
     switch (wall) {
         case 0: {
-            //breakUpWall(cell)
-            nextCell = cell - size
+            breakWestWall(cell)
             break
         }
         case 1: {
-            //breakDownWall(cell)
-            nextCell = cell + size
+            breakEastWall(cell)
             break
         }
         case 2: {
-            //breakLeftWall(cell)
-            nextCell = cell - 1
+            breakNorthWall(cell)
             break
         }
         case 3: {
-            //breakRightWall(cell)
-            nextCell = cell + 1
+            breakSouthWall(cell)
             break
         }
     }
-
-    let fallen: number = getActualFallenWalls(nextCell)
-
-    if (fallen > 0) {
-        nextCell = -1
-        return
-    }
-
-    switch (wall) {
-        case 0: {
-            breakUpWall(cell)
-            //nextCell = cell - size
-            break
-        }
-        case 1: {
-            breakDownWall(cell)
-            //nextCell = cell + size
-            break
-        }
-        case 2: {
-            breakLeftWall(cell)
-            //nextCell = cell - 1
-            break
-        }
-        case 3: {
-            breakRightWall(cell)
-            //nextCell = cell + 1
-            break
-        }
-    }
-
-    return nextCell
 }
 
+// Find all maze cells that are intact and are
+// neighboring broken cells.
+function findNextCells(): number[] {
+    let nextCells: number[] = []
+
+    for (let i: number = 0; i < size * size; i++) {
+        if (getActualBrokenWalls(i) > 0) {
+            continue
+        }
+
+        if (!checkNorth(i)) {
+            nextCells.push(i)
+            continue
+        }
+
+        if (!checkSouth(i)) {
+            nextCells.push(i)
+            continue
+        }
+
+        if (!checkWest(i)) {
+            nextCells.push(i)
+            continue
+        }
+
+        if (!checkEast(i)) {
+            nextCells.push(i)
+            continue
+        }
+    }
+
+    return nextCells
+}
+
+// Draw the blinking dot which represents the player
 function drawPlayer() {
     if (!generated || gameOver) {
         return
@@ -549,6 +564,7 @@ function drawPlayer() {
     playerState = !playerState
 }
 
+// Draw the blinking corner dots.
 function drawCorners() {
     if (!generated || gameOver) {
         return
@@ -583,6 +599,7 @@ function drawCorners() {
     cornerState = !cornerState
 }
 
+// Determine the game state.
 function checkGameState() {
     if (secondStage) {
         if (playerX == 0 && playerY == 0) {
@@ -611,6 +628,10 @@ function checkGameState() {
         }
     }
 }
+
+// Generic micro:bit event handlers.
+
+// Move player to the west.
 input.onGesture(Gesture.TiltLeft, () => {
     if (!generated || gameOver) {
         return
@@ -618,13 +639,14 @@ input.onGesture(Gesture.TiltLeft, () => {
 
     let cell: number = size * playerY + playerX
 
-    if (getLeft(cell)) {
+    if (getWest(cell)) {
         playerX--
         masterX += 2
-        drawMaze(0)
+        drawMaze()
     }
 })
 
+// Move player to the east.
 input.onGesture(Gesture.TiltRight, () => {
     if (!generated || gameOver) {
         return
@@ -632,13 +654,14 @@ input.onGesture(Gesture.TiltRight, () => {
 
     let cell: number = size * playerY + playerX
 
-    if (getRight(cell)) {
+    if (getEast(cell)) {
         playerX++
         masterX -= 2
-        drawMaze(0)
+        drawMaze()
     }
 })
 
+// Move player to the north.
 input.onGesture(Gesture.LogoDown, () => {
     if (!generated || gameOver) {
         return
@@ -646,40 +669,48 @@ input.onGesture(Gesture.LogoDown, () => {
 
     let cell: number = size * playerY + playerX
 
-    if (getUp(cell)) {
+    if (getNorth(cell)) {
         playerY--
         masterY += 2
-        drawMaze(0)
+        drawMaze()
     }
 })
 
+// Move player to the west.
 input.onGesture(Gesture.LogoUp, () => {
     if (!generated || gameOver) {
         return
     }
 
-    //basic.showString("U")
-
     let cell: number = size * playerY + playerX
 
-    if (getDown(cell)) {
-        //basic.showString("" + cell + "" + playerX + "" + playerY)
+    if (getSouth(cell)) {
         playerY++
         masterY -= 2
-        drawMaze(0)
+        drawMaze()
     }
 })
 
+// Generate the maze and start the game.
 input.onButtonPressed(Button.AB, () => {
     if (generated || gameOver) {
         return
     }
 
+    basic.showLeds(`
+        # # # # #
+        . # # # .
+        . . # . .
+        . # . # .
+        # # # # #
+        `)
+
     generateMaze()
     generated = true
-    drawMaze(0)
+    drawMaze()
 })
 
+// Decrease the maze size.
 input.onButtonPressed(Button.A, () => {
     if (generated || gameOver) {
         return
@@ -692,6 +723,7 @@ input.onButtonPressed(Button.A, () => {
     basic.showNumber(size)
 })
 
+// Increase the maze size.
 input.onButtonPressed(Button.B, () => {
     if (generated || gameOver) {
         return
@@ -704,17 +736,21 @@ input.onButtonPressed(Button.B, () => {
     basic.showNumber(size)
 })
 
+// Generate and handle custom events which produce the
+// blinking effect.
 basic.forever(() => {
-    if (!gameOver && input.runningTime() / 100 > nextEvent) {
+    if (!gameOver && input.runningTime() / EVENT_TIME > nextEvent) {
         nextEvent++
 
         checkGameState()
 
         if (nextEvent % 2 == 0) {
+            // Redraw player every 200 ms.
             drawPlayer()
         }
 
         if (nextEvent % 5 == 0) {
+            // Redraw corner dots every 500 ms.
             drawCorners()
         }
     }
