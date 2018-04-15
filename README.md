@@ -12,6 +12,4 @@ At the beginning you can choose the maze size. Currently the maze size is limite
 
 Use buttons ``A`` and ``B`` to select the initial maze size. Then press buttons ``A`` and ``B`` together in order to start the game. Tilt the device in the direction where you want to go. That's all. When you finish the game press the reset button.
 
-The code can be placed directly in the [online JavaScript IDE](https://makecode.microbit.org) and the game can be played in the emulator, although the tilting doesn't work that well there.
-
-Note that currently there is a bug in the maze generation process which sometimes makes the 4x4 maze unsolvable. The issue never appeared in the other maze sizes, although in theory it should affect the other maze sizes as well. Nevertheless, my experiments show that the issue can be observed only sometimes in 4x4 mazes.
+You can also [give it a try](https://makecode.microbit.org/_4m73YjcqY0fo) in the ``Microsoft MakeCode`` online environment and play the game in the ``micro:bit`` simulator.
