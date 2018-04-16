@@ -3,6 +3,8 @@
 
                    Author: Ivan Davidov
 
+          http://github/com/ivandavidov/microbit
+
   The game generates random maze and puts the player at the
   top left corner. The end goal is to reach the other three
   corners which are marked with slowly blinking dots and then
@@ -80,15 +82,20 @@ let gameOver: boolean = false;
 // Game stage flag. The first stage is to reach
 // the other three corners. The second stage is
 // to reach the upper left corner of the maze.
-let secondStage: boolean = false;
+let secondStage: boolean = false
 
 // At what tilt degrees to consider that we have
 // "move" event and "flat" event.
-const TILT_DEGREES_MOVE = 15
-const TILT_DEGREES_FLAT = 10
+const TILT_DEGREES_MOVE: number = 15
+const TILT_DEGREES_FLAT: number = 10
 
 // Board's tilt position. False means almost no tilt.
 let mbState: boolean = false
+
+// Brightness levels.
+let BRIGHTNESS_WALL: number = 16
+let BRIGHTNESS_CORNER: number = 64
+let BRIGHTNESS_PLAYER: number = 255
 
 // Display the initial maze size.
 basic.showNumber(size)
@@ -330,7 +337,7 @@ function drawNorthWall(posX: number, posY: number) {
     let y: number = posY - 1
 
     for (let i: number = 0; i < 3; i++) {
-        led.plot(x + i, y)
+        led.plotBrightness(x + i, y, BRIGHTNESS_WALL)
     }
 }
 
@@ -340,7 +347,7 @@ function drawSouthWall(posX: number, posY: number) {
     let y: number = posY + 1
 
     for (let i: number = 0; i < 3; i++) {
-        led.plot(x + i, y)
+        led.plotBrightness(x + i, y, BRIGHTNESS_WALL)
     }
 }
 
@@ -350,7 +357,7 @@ function drawWestWall(posX: number, posY: number) {
     let y: number = posY - 1
 
     for (let i: number = 0; i < 3; i++) {
-        led.plot(x, y + i)
+        led.plotBrightness(x, y + i, BRIGHTNESS_WALL)
     }
 }
 
@@ -360,7 +367,7 @@ function drawEastWall(posX: number, posY: number) {
     let y: number = posY - 1
 
     for (let i: number = 0; i < 3; i++) {
-        led.plot(x, y + i)
+        led.plotBrightness(x, y + i, BRIGHTNESS_WALL)
     }
 }
 
@@ -559,7 +566,7 @@ function drawPlayer() {
     }
 
     if (playerState) {
-        led.plot(2, 2)
+        led.plotBrightness(2, 2, BRIGHTNESS_PLAYER)
     } else {
         led.unplot(2, 2)
     }
@@ -575,27 +582,33 @@ function drawCorners() {
 
     if (secondStage) {
         if (cornerState) {
-            led.plot(masterX + 1, masterY + 1)
+            led.plotBrightness(masterX + 1, masterY + 1, BRIGHTNESS_CORNER)
         } else {
             led.unplot(masterX + 1, masterY + 1)
         }
     } else {
-        if (!cornersReached[0] && cornerState) {
-            led.plot(masterX + size * 2 - 1, masterY + 1)
-        } else {
-            led.unplot(masterX + size * 2 - 1, masterY + 1)
+        if (!cornersReached[0]) {
+            if (cornerState) {
+                led.plotBrightness(masterX + size * 2 - 1, masterY + 1, BRIGHTNESS_CORNER)
+            } else {
+                led.unplot(masterX + size * 2 - 1, masterY + 1)
+            }
         }
 
-        if (!cornersReached[1] && cornerState) {
-            led.plot(masterX + 1, masterY + size * 2 - 1)
-        } else {
-            led.unplot(masterX + 1, masterY + size * 2 - 1)
+        if (!cornersReached[1]) {
+            if (cornerState) {
+                led.plotBrightness(masterX + 1, masterY + size * 2 - 1, BRIGHTNESS_CORNER)
+            } else {
+                led.unplot(masterX + 1, masterY + size * 2 - 1)
+            }
         }
 
-        if (!cornersReached[2] && cornerState) {
-            led.plot(masterX + size * 2 - 1, masterY + size * 2 - 1)
-        } else {
-            led.unplot(masterX + size * 2 - 1, masterY + size * 2 - 1)
+        if (!cornersReached[2]) {
+            if (cornerState) {
+                led.plotBrightness(masterX + size * 2 - 1, masterY + size * 2 - 1, BRIGHTNESS_CORNER)
+            } else {
+                led.unplot(masterX + size * 2 - 1, masterY + size * 2 - 1)
+            }
         }
     }
 
@@ -604,11 +617,10 @@ function drawCorners() {
 
 // Determine the game state.
 function checkGameState() {
-    if (secondStage) {
-        if (playerX == 0 && playerY == 0) {
-            gameOver = true
-            basic.showIcon(IconNames.Yes)
-        }
+    if (secondStage && playerX == 0 && playerY == 0) {
+        gameOver = true
+        led.setDisplayMode(DisplayMode.BackAndWhite)
+        basic.showIcon(IconNames.Yes)
     } else {
         if (playerX == size - 1 && playerY == 0) {
             cornersReached[0] = true
@@ -732,13 +744,13 @@ basic.forever(() => {
         checkGameState()
         checkBoardTilt()
 
+        // Redraw player every 200 ms.
         if (nextEvent % 2 == 0) {
-            // Redraw player every 200 ms.
             drawPlayer()
         }
 
+        // Redraw corner dots every 500 ms.
         if (nextEvent % 5 == 0) {
-            // Redraw corner dots every 500 ms.
             drawCorners()
         }
     }
